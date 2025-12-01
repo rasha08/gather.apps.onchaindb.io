@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIA Gather - Decentralized Money Gathering on Celestia</title>
+    <meta name="description" content="Create and share money gatherings with friends. Contributions are recorded on Celestia blockchain.">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        celestia: {
+                            50: '#f0f5ff',
+                            100: '#e0ebff',
+                            200: '#c7d9fe',
+                            300: '#a3bffd',
+                            400: '#7c9cfa',
+                            500: '#5a78f5',
+                            600: '#4258ea',
+                            700: '#3646d6',
+                            800: '#2e3aad',
+                            900: '#2a3589',
+                            950: '#1a2053',
+                        },
+                        dark: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'gradient': 'gradient 8s ease infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        gradient: {
+                            '0%, 100%': { backgroundPosition: '0% 50%' },
+                            '50%': { backgroundPosition: '100% 50%' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        },
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        .gradient-bg {
+            background: linear-gradient(-45deg, #1a2053, #2a3589, #3646d6, #4258ea);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-light {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .progress-bar {
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #5a78f5 0%, #4258ea 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(90, 120, 245, 0.4);
+        }
+
+        .floating-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        .countdown-digit {
+            background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s linear infinite;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Modal animation */
+        .modal-backdrop {
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-content {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-enter .modal-content {
+            opacity: 0;
+            transform: scale(0.95) translateY(20px);
+        }
+
+        /* Input focus */
+        input:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(90, 120, 245, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-dark-950 text-white font-sans antialiased min-h-screen">
+    <!-- Background Effects -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="floating-orb w-96 h-96 bg-celestia-600 top-[-10%] left-[-5%]" style="animation-delay: 0s;"></div>
+        <div class="floating-orb w-80 h-80 bg-purple-600 bottom-[-10%] right-[-5%]" style="animation-delay: -4s;"></div>
+        <div class="floating-orb w-64 h-64 bg-celestia-400 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" style="animation-delay: -2s;"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <a href="/" class="flex items-center gap-3 group">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-celestia-400 to-celestia-600 flex items-center justify-center transform group-hover:rotate-12 transition-transform">
+                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold bg-gradient-to-r from-white to-dark-300 bg-clip-text text-transparent">TIA Gather</span>
+                </a>
+
+                <!-- Nav Links -->
+                <div class="hidden md:flex items-center gap-6">
+                    <a href="/" class="text-dark-300 hover:text-white transition-colors">Explore</a>
+                    <button onclick="showMyGatherings()" class="text-dark-300 hover:text-white transition-colors">My Gatherings</button>
+                    <button onclick="showCreateModal()" class="btn-primary px-4 py-2 rounded-lg font-medium text-sm">
+                        Create Gathering
+                    </button>
+                </div>
+
+                <!-- Wallet -->
+                <div id="wallet-container" class="flex items-center gap-4">
+                    <button id="connect-wallet-btn" onclick="connectWallet()" class="glass-light px-4 py-2 rounded-lg font-medium text-sm hover:bg-white/10 transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        <span>Connect Wallet</span>
+                    </button>
+                    <div id="wallet-info" class="hidden items-center gap-3">
+                        <div class="text-right">
+                            <div id="wallet-balance" class="text-sm font-medium text-celestia-400">0 TIA</div>
+                            <div id="wallet-address" class="text-xs text-dark-400 font-mono">celestia1...</div>
+                        </div>
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-celestia-400 to-purple-500 flex items-center justify-center">
+                            <span id="wallet-avatar" class="text-sm font-bold">?</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="relative z-10 pt-24 pb-12">
+        <!-- Hero Section -->
+        <section id="hero-section" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+            <div class="text-center mb-12">
+                <h1 class="text-5xl md:text-6xl font-bold mb-6">
+                    <span class="bg-gradient-to-r from-white via-celestia-200 to-celestia-400 bg-clip-text text-transparent">
+                        Gather TIA Together
+                    </span>
+                </h1>
+                <p class="text-xl text-dark-300 max-w-2xl mx-auto mb-8">
+                    Create decentralized fundraisers with friends. Every contribution is recorded on Celestia blockchain.
+                </p>
+                <div class="flex flex-wrap justify-center gap-4">
+                    <button onclick="showCreateModal()" class="btn-primary px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Start a Gathering
+                    </button>
+                    <a href="#gatherings" class="glass-light px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/10 transition-colors">
+                        Explore Gatherings
+                    </a>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div id="stats-bar" class="glass rounded-2xl p-6 grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="text-center">
+                    <div id="stat-active" class="text-3xl font-bold text-celestia-400">-</div>
+                    <div class="text-sm text-dark-400">Active Gatherings</div>
+                </div>
+                <div class="text-center">
+                    <div id="stat-raised" class="text-3xl font-bold text-green-400">-</div>
+                    <div class="text-sm text-dark-400">TIA Raised</div>
+                </div>
+                <div class="text-center">
+                    <div id="stat-contributors" class="text-3xl font-bold text-purple-400">-</div>
+                    <div class="text-sm text-dark-400">Contributors</div>
+                </div>
+                <div class="text-center">
+                    <div id="stat-completed" class="text-3xl font-bold text-yellow-400">-</div>
+                    <div class="text-sm text-dark-400">Goals Reached</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gatherings Grid -->
+        <section id="gatherings" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-2xl font-bold">Active Gatherings</h2>
+                <div class="flex gap-2">
+                    <button onclick="filterGatherings('active')" class="filter-btn active px-4 py-2 rounded-lg text-sm font-medium glass-light hover:bg-white/10 transition-colors" data-filter="active">Active</button>
+                    <button onclick="filterGatherings('completed')" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium glass-light hover:bg-white/10 transition-colors" data-filter="completed">Completed</button>
+                    <button onclick="filterGatherings('all')" class="filter-btn px-4 py-2 rounded-lg text-sm font-medium glass-light hover:bg-white/10 transition-colors" data-filter="all">All</button>
+                </div>
+            </div>
+
+            <div id="gatherings-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Gatherings will be rendered here -->
+                <div class="col-span-full flex justify-center py-12">
+                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-celestia-500"></div>
+                </div>
+            </div>
+
+            <div id="empty-state" class="hidden text-center py-16">
+                <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-dark-800 flex items-center justify-center">
+                    <svg class="w-12 h-12 text-dark-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">No gatherings yet</h3>
+                <p class="text-dark-400 mb-6">Be the first to create a gathering!</p>
+                <button onclick="showCreateModal()" class="btn-primary px-6 py-3 rounded-lg font-medium">
+                    Create Gathering
+                </button>
+            </div>
+        </section>
+
+        <!-- Recent Activity Sidebar (on larger screens) -->
+        <aside id="activity-sidebar" class="hidden xl:block fixed right-8 top-24 w-80">
+            <div class="glass rounded-2xl p-6">
+                <h3 class="font-semibold mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+                    Live Activity
+                </h3>
+                <div id="activity-feed" class="space-y-3 max-h-96 overflow-y-auto">
+                    <!-- Activity items will be rendered here -->
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Gathering Detail View -->
+    <div id="gathering-detail" class="hidden fixed inset-0 z-50 bg-dark-950/95 overflow-y-auto">
+        <div class="max-w-4xl mx-auto px-4 py-8">
+            <button onclick="hideGatheringDetail()" class="mb-6 flex items-center gap-2 text-dark-400 hover:text-white transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to all gatherings
+            </button>
+            <div id="gathering-detail-content">
+                <!-- Detail content will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Gathering Modal -->
+    <div id="create-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-backdrop absolute inset-0 bg-dark-950/80 backdrop-blur-sm" onclick="hideCreateModal()"></div>
+        <div class="modal-content glass rounded-3xl p-8 max-w-lg w-full relative">
+            <button onclick="hideCreateModal()" class="absolute top-6 right-6 text-dark-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <h2 class="text-2xl font-bold mb-6">Create a Gathering</h2>
+
+            <form id="create-form" onsubmit="createGathering(event)" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-dark-300 mb-2">Title</label>
+                    <input type="text" id="create-title" required maxlength="100" placeholder="e.g., Birthday Party Fund" class="w-full bg-dark-800 border border-dark-700 rounded-xl px-4 py-3 text-white placeholder-dark-500 focus:border-celestia-500 transition-colors">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-dark-300 mb-2">Description</label>
+                    <textarea id="create-description" required maxlength="500" rows="3" placeholder="What are you gathering for?" class="w-full bg-dark-800 border border-dark-700 rounded-xl px-4 py-3 text-white placeholder-dark-500 focus:border-celestia-500 transition-colors resize-none"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-dark-300 mb-2">Goal (TIA)</label>
+                        <input type="number" id="create-goal" required min="1" step="0.1" placeholder="10" class="w-full bg-dark-800 border border-dark-700 rounded-xl px-4 py-3 text-white placeholder-dark-500 focus:border-celestia-500 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-dark-300 mb-2">End Date</label>
+                        <input type="datetime-local" id="create-ends-at" required class="w-full bg-dark-800 border border-dark-700 rounded-xl px-4 py-3 text-white placeholder-dark-500 focus:border-celestia-500 transition-colors">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-dark-300 mb-2">Cover Image (optional)</label>
+                    <div class="relative">
+                        <input type="file" id="create-image" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" onchange="handleImageSelect(this)">
+                        <div id="image-preview" class="hidden mb-3 relative">
+                            <img id="image-preview-img" src="" alt="Preview" class="w-full h-40 object-cover rounded-xl">
+                            <button type="button" onclick="clearImagePreview()" class="absolute top-2 right-2 bg-dark-900/80 rounded-full p-1 hover:bg-red-500 transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <label for="create-image" class="flex items-center justify-center gap-3 w-full bg-dark-800 border-2 border-dashed border-dark-600 rounded-xl px-4 py-6 cursor-pointer hover:border-celestia-500 transition-colors">
+                            <svg class="w-8 h-8 text-dark-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <div class="text-left">
+                                <p class="text-dark-300 font-medium">Upload image to Celestia</p>
+                                <p class="text-xs text-dark-500">PNG, JPG, GIF, WebP (max 1.5MB)</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="glass-light rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-dark-400">Creation Fee</span>
+                        <span id="create-fee" class="font-medium text-celestia-400">0.5 TIA</span>
+                    </div>
+                    <div id="image-fee-row" class="hidden flex items-center justify-between mb-2">
+                        <span class="text-sm text-dark-400">Image Storage</span>
+                        <span id="image-fee" class="font-medium text-celestia-400">0 TIA</span>
+                    </div>
+                    <p class="text-xs text-dark-500">Fees cover blockchain storage on Celestia.</p>
+                </div>
+
+                <button type="submit" id="create-submit-btn" class="w-full btn-primary py-4 rounded-xl font-semibold text-lg">
+                    Create Gathering
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contribute Modal -->
+    <div id="contribute-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-backdrop absolute inset-0 bg-dark-950/80 backdrop-blur-sm" onclick="hideContributeModal()"></div>
+        <div class="modal-content glass rounded-3xl p-8 max-w-lg w-full relative">
+            <button onclick="hideContributeModal()" class="absolute top-6 right-6 text-dark-400 hover:text-white transition-colors">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <h2 class="text-2xl font-bold mb-2">Contribute</h2>
+            <p id="contribute-title" class="text-dark-400 mb-6">to Loading...</p>
+
+            <form id="contribute-form" onsubmit="submitContribution(event)" class="space-y-5">
+                <input type="hidden" id="contribute-gathering-id">
+
+                <div>
+                    <label class="block text-sm font-medium text-dark-300 mb-2">Amount (TIA)</label>
+                    <div class="relative">
+                        <input type="number" id="contribute-amount" required min="0.1" step="0.1" placeholder="1.0" class="w-full bg-dark-800 border border-dark-700 rounded-xl px-4 py-3 text-white placeholder-dark-500 focus:border-celestia-500 transition-colors text-2xl font-bold">
+                        <div class="absolute right-4 top-1/2 -translate-y-1/2 text-dark-400 font-medium">TIA</div>
+                    </div>
+                    <p id="contribute-min" class="text-xs text-dark-500 mt-1">Minimum: 0.1 TIA</p>
+                </div>
+
+                <div class="flex gap-2">
+                    <button type="button" onclick="setContributeAmount(1)" class="flex-1 glass-light py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">1 TIA</button>
+                    <button type="button" onclick="setContributeAmount(5)" class="flex-1 glass-light py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">5 TIA</button>
+                    <button type="button" onclick="setContributeAmount(10)" class="flex-1 glass-light py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">10 TIA</button>
+                    <button type="button" onclick="setContributeAmount(25)" class="flex-1 glass-light py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors">25 TIA</button>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-dark-300 mb-2">Message (optional)</label>
+                    <input type="text" id="contribute-message" maxlength="200" placeholder="Great cause!" class="w-full bg-dark-800 border border-dark-700 rounded-xl px-4 py-3 text-white placeholder-dark-500 focus:border-celestia-500 transition-colors">
+                </div>
+
+                <button type="submit" id="contribute-submit-btn" class="w-full btn-primary py-4 rounded-xl font-semibold text-lg">
+                    Contribute
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transaction Progress Modal -->
+    <div id="tx-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="modal-backdrop absolute inset-0 bg-dark-950/90 backdrop-blur-sm"></div>
+        <div class="modal-content glass rounded-3xl p-8 max-w-md w-full relative text-center">
+            <div id="tx-spinner" class="mb-6">
+                <div class="w-16 h-16 mx-auto border-4 border-celestia-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div id="tx-success" class="hidden mb-6">
+                <div class="w-16 h-16 mx-auto bg-green-500 rounded-full flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+            </div>
+            <div id="tx-error" class="hidden mb-6">
+                <div class="w-16 h-16 mx-auto bg-red-500 rounded-full flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </div>
+            </div>
+            <h3 id="tx-title" class="text-xl font-bold mb-2">Processing Transaction</h3>
+            <p id="tx-message" class="text-dark-400 mb-6">Please wait...</p>
+            <a id="tx-link" href="#" target="_blank" class="hidden text-celestia-400 hover:text-celestia-300 text-sm font-mono">
+                View on Explorer
+            </a>
+            <button id="tx-close" onclick="hideTxModal()" class="hidden mt-4 w-full glass-light py-3 rounded-xl font-medium hover:bg-white/10 transition-colors">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="/static/js/keplr.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
