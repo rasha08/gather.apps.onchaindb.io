@@ -10,6 +10,50 @@ let currentFilter = 'active';
 let currentGatheringId = null;
 let refreshInterval = null;
 
+// ===== x402 Payment Protocol Helpers =====
+
+/**
+ * Parse an x402 Payment Required response.
+ * x402 format: { x402Version: 1, error: "...", accepts: [...] }
+ * Legacy format: { payment_required: { amount_utia, pay_to, ... } }
+ *
+ * @param {Object} data - The 402 response JSON
+ * @returns {Object} - Normalized payment info { amountUtia, payTo, description, quoteId }
+ */
+function parseX402Response(data) {
+    // Handle x402 format
+    if (data.x402Version === 1 && Array.isArray(data.accepts) && data.accepts.length > 0) {
+        const option = data.accepts[0]; // Use first payment option
+        return {
+            amountUtia: parseInt(option.maxAmountRequired, 10),
+            payTo: option.payTo,
+            description: option.description || 'Payment required',
+            quoteId: option.extra?.quoteId || null,
+            network: option.network,
+            asset: option.asset,
+            expiresAt: option.extra?.expiresAt || null,
+            // Keep all options for potential multi-chain support
+            allOptions: data.accepts,
+        };
+    }
+
+    // Handle legacy format for backwards compatibility
+    if (data.payment_required) {
+        return {
+            amountUtia: data.payment_required.amount_utia,
+            payTo: data.payment_required.pay_to,
+            description: data.payment_required.description || 'Payment required',
+            quoteId: null,
+            network: null,
+            asset: 'utia',
+            expiresAt: null,
+            allOptions: [],
+        };
+    }
+
+    throw new Error('Invalid payment response format');
+}
+
 // ===== Initialization =====
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -638,9 +682,9 @@ async function createGathering(event) {
             }
 
             const quoteData = await quoteRes.json();
-            const paymentRequired = quoteData.payment_required;
-            const imageCostUtia = paymentRequired.amount_utia;
-            const payTo = paymentRequired.pay_to || appConfig.broker_address;
+            const paymentInfo = parseX402Response(quoteData);
+            const imageCostUtia = paymentInfo.amountUtia;
+            const payTo = paymentInfo.payTo || appConfig.broker_address;
 
             document.getElementById('tx-message').textContent = 'Please approve the image upload transaction...';
 
@@ -700,9 +744,9 @@ async function createGathering(event) {
         }
 
         const quoteData = await quoteRes.json();
-        const paymentRequired = quoteData.payment_required;
-        const creationFeeUtia = paymentRequired.amount_utia;
-        const payTo = paymentRequired.pay_to || appConfig.broker_address;
+        const paymentInfo = parseX402Response(quoteData);
+        const creationFeeUtia = paymentInfo.amountUtia;
+        const payTo = paymentInfo.payTo || appConfig.broker_address;
 
         document.getElementById('tx-message').textContent = 'Please approve the gathering creation transaction...';
 
@@ -797,9 +841,9 @@ async function submitContribution(event) {
         }
 
         const quoteData = await quoteRes.json();
-        const paymentRequired = quoteData.payment_required;
-        const storageFeeUtia = paymentRequired.amount_utia;
-        const payTo = paymentRequired.pay_to || appConfig.broker_address;
+        const paymentInfo = parseX402Response(quoteData);
+        const storageFeeUtia = paymentInfo.amountUtia;
+        const payTo = paymentInfo.payTo || appConfig.broker_address;
 
         // Total payment = contribution amount + storage fee
         const totalPaymentUtia = amountUtia + storageFeeUtia;

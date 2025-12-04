@@ -5,11 +5,52 @@ Main Flask application with API routes.
 """
 
 import logging
+import time
+import uuid
 from flask import Flask, jsonify, request, render_template
 import httpx
 
 from config import AppConfig
 from services import GatheringService
+
+
+def build_x402_response(
+    amount_utia: int,
+    pay_to: str,
+    description: str,
+    resource: str,
+    network: str = None,
+    quote_id: str = None,
+) -> dict:
+    """
+    Build a proper x402 Payment Required response.
+
+    See: https://github.com/coinbase/x402/blob/main/specs/x402-specification.md
+    """
+    return {
+        "x402Version": 1,
+        "error": "Payment required",
+        "accepts": [
+            {
+                "scheme": "exact",
+                "network": network or AppConfig.CELESTIA_CHAIN_ID,
+                "maxAmountRequired": str(amount_utia),
+                "payTo": pay_to,
+                "asset": "utia",
+                "resource": resource,
+                "description": description,
+                "mimeType": "application/json",
+                "maxTimeoutSeconds": 300,
+                "extra": {
+                    "quoteId": quote_id or str(uuid.uuid4()),
+                    "chainType": "cosmos",
+                    "tokenSymbol": "TIA",
+                    "tokenDecimals": 6,
+                    "expiresAt": int(time.time()) + 300,
+                },
+            }
+        ],
+    }
 
 # Configure logging
 logging.basicConfig(
@@ -160,18 +201,15 @@ def create_gathering():
                 size_kb=size_kb,
             )
 
-            total_cost_tia = quote.get("total_cost_tia", quote.get("total_cost", 0))
-            amount_utia = int(total_cost_tia * 1_000_000)
+            # Read x402 properties from quote
+            amount_utia = quote.get("total_cost_utia", int(quote.get("total_cost", 0) * 1_000_000))
 
-            return jsonify({
-                "success": False,
-                "error": "Payment required",
-                "payment_required": {
-                    "amount_utia": amount_utia,
-                    "pay_to": AppConfig.BROKER_ADDRESS,
-                    "description": f"Create gathering: {data['title'][:30]}",
-                }
-            }), 402
+            return jsonify(build_x402_response(
+                amount_utia=amount_utia,
+                pay_to=AppConfig.BROKER_ADDRESS,
+                description=f"Create gathering: {data['title'][:30]}",
+                resource=request.path,
+            )), 402
 
         gathering = gathering_service.create_gathering(
             title=data["title"],
@@ -230,18 +268,15 @@ def contribute(gathering_id):
                 size_kb=size_kb,
             )
 
-            total_cost_tia = quote.get("total_cost_tia", quote.get("total_cost", 0))
-            storage_fee_utia = int(total_cost_tia * 1_000_000)
+            # Read x402 properties from quote
+            amount_utia = quote.get("total_cost_utia", int(quote.get("total_cost", 0) * 1_000_000))
 
-            return jsonify({
-                "success": False,
-                "error": "Payment required",
-                "payment_required": {
-                    "amount_utia": storage_fee_utia,
-                    "pay_to": AppConfig.BROKER_ADDRESS,
-                    "description": f"Contribute to gathering",
-                }
-            }), 402
+            return jsonify(build_x402_response(
+                amount_utia=amount_utia,
+                pay_to=AppConfig.BROKER_ADDRESS,
+                description="Contribute to gathering",
+                resource=request.path,
+            )), 402
 
         contribution = gathering_service.contribute(
             gathering_id=gathering_id,
@@ -519,18 +554,15 @@ def upload_blob():
                 size_kb=size_kb,
             )
 
-            total_cost_tia = quote.get("total_cost_tia", quote.get("total_cost", 0))
-            amount_utia = int(total_cost_tia * 1_000_000)
+            # Read x402 properties from quote
+            amount_utia = quote.get("total_cost_utia", int(quote.get("total_cost", 0) * 1_000_000))
 
-            return jsonify({
-                "success": False,
-                "error": "Payment required",
-                "payment_required": {
-                    "amount_utia": amount_utia,
-                    "pay_to": AppConfig.BROKER_ADDRESS,
-                    "description": f"Upload image ({size_kb}KB)",
-                }
-            }), 402
+            return jsonify(build_x402_response(
+                amount_utia=amount_utia,
+                pay_to=AppConfig.BROKER_ADDRESS,
+                description=f"Upload image ({size_kb}KB)",
+                resource=request.path,
+            )), 402
 
         payment_proof = {
             "payment_tx_hash": payment_tx_hash,
