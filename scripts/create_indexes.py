@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
-Create OnChainDB indexes for the Money Gathering App
+Create OnChainDB indexes for the Money Gathering App using the new SDK schema API.
 
 Run: python scripts/create_indexes.py
 """
 
 import os
 import sys
-import httpx
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+# Add parent directory to path for local SDK development
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'db-client', 'sdk-python'))
+
+from onchaindb import OnChainDBClient, SimpleCollectionSchema
 
 ENDPOINT = os.getenv("ONCHAINDB_ENDPOINT", "http://localhost:9092")
 APP_ID = os.getenv("ONCHAINDB_APP_ID", "")
@@ -28,271 +32,153 @@ def main():
         print("ERROR: ONCHAINDB_APP_ID and ONCHAINDB_APP_KEY must be set")
         sys.exit(1)
 
-    client = httpx.Client(
-        base_url=ENDPOINT,
-        headers={
-            "Content-Type": "application/json",
-            "X-App-Key": APP_KEY,
-        },
-        timeout=30.0,
+    client = OnChainDBClient(
+        endpoint=ENDPOINT,
+        app_id=APP_ID,
+        app_key=APP_KEY,
     )
 
     # ============================================
-    # GATHERINGS COLLECTION INDEXES
+    # GATHERINGS COLLECTION SCHEMA
     # ============================================
-    gathering_indexes = [
-        {
-            "name": "gatherings_id_unique",
-            "collection": "gatherings",
-            "field_name": "id",
-            "index_type": "Hash",
-            "unique_constraint": True,
-            "store_values": True,
-            "description": "Primary key - unique gathering ID",
+    gatherings_schema: SimpleCollectionSchema = {
+        "name": "gatherings",
+        "fields": {
+            "id": {"type": "string", "index": True, "indexType": "hash"},
+            "creator": {"type": "string", "index": True, "indexType": "hash"},
+            "status": {"type": "string", "index": True, "indexType": "hash"},
+            "created_at": {"type": "date", "index": True},
+            "ends_at": {"type": "date", "index": True},
+            "goal_amount": {"type": "number", "index": True},
         },
-        {
-            "name": "gatherings_creator_join",
-            "collection": "gatherings",
-            "field_name": "creator",
-            "index_type": "Hash",
-            "store_values": True,
-            "description": "Find gatherings by creator wallet address",
+        "use_base_fields": False,  # We define our own fields
+    }
+
+    # ============================================
+    # CONTRIBUTIONS COLLECTION SCHEMA
+    # ============================================
+    contributions_schema: SimpleCollectionSchema = {
+        "name": "contributions",
+        "fields": {
+            "id": {"type": "string", "index": True, "indexType": "hash"},
+            "gathering_id": {"type": "string", "index": True, "indexType": "hash"},
+            "contributor": {"type": "string", "index": True, "indexType": "hash"},
+            "amount": {"type": "number", "index": True},
+            "created_at": {"type": "date", "index": True},
+            "payment_tx_hash": {"type": "string", "index": True, "indexType": "hash"},
         },
-        {
-            "name": "gatherings_status_filter",
-            "collection": "gatherings",
-            "field_name": "status",
-            "index_type": "Hash",
-            "store_values": True,
-            "description": "Filter by active/completed/expired status",
+        "use_base_fields": False,
+    }
+
+    # ============================================
+    # IMAGES COLLECTION SCHEMA (Blob Storage)
+    # ============================================
+    images_schema: SimpleCollectionSchema = {
+        "name": "images",
+        "fields": {
+            "blob_id": {"type": "string", "index": True, "indexType": "hash"},
+            "content_type": {"type": "string", "index": True},
+            "size_bytes": {"type": "number", "index": True},
+            "uploaded_at": {"type": "date", "index": True},
+            "gathering_id": {"type": "string", "index": True, "indexType": "hash"},
         },
-        {
-            "name": "gatherings_created_at_sort",
-            "collection": "gatherings",
-            "field_name": "created_at",
-            "index_type": "BTree",
-            "store_values": True,
-            "sort_enabled": True,
-            "description": "Sort gatherings by creation date",
-        },
-        {
-            "name": "gatherings_ends_at_sort",
-            "collection": "gatherings",
-            "field_name": "ends_at",
-            "index_type": "BTree",
-            "store_values": True,
-            "sort_enabled": True,
-            "description": "Sort by end date, find expired gatherings",
-        },
-        {
-            "name": "gatherings_goal_amount_sort",
-            "collection": "gatherings",
-            "field_name": "goal_amount",
-            "index_type": "BTree",
-            "store_values": True,
-            "sort_enabled": True,
-            "description": "Sort by goal amount",
-        },
+        "use_base_fields": False,
+    }
+
+    schemas = [
+        ("gatherings", gatherings_schema),
+        ("contributions", contributions_schema),
+        ("images", images_schema),
     ]
 
-    # ============================================
-    # CONTRIBUTIONS COLLECTION INDEXES
-    # ============================================
-    contribution_indexes = [
-        {
-            "name": "contributions_id_unique",
-            "collection": "contributions",
-            "field_name": "id",
-            "index_type": "Hash",
-            "unique_constraint": True,
-            "store_values": True,
-            "description": "Primary key - unique contribution ID",
-        },
-        {
-            "name": "contributions_gathering_id_join",
-            "collection": "contributions",
-            "field_name": "gathering_id",
-            "index_type": "Hash",
-            "store_values": True,
-            "description": "JOIN field for gathering -> contributions relationship",
-        },
-        {
-            "name": "contributions_contributor_join",
-            "collection": "contributions",
-            "field_name": "contributor",
-            "index_type": "Hash",
-            "store_values": True,
-            "description": "Find contributions by contributor wallet address",
-        },
-        {
-            "name": "contributions_amount_sort",
-            "collection": "contributions",
-            "field_name": "amount",
-            "index_type": "BTree",
-            "store_values": True,
-            "sort_enabled": True,
-            "description": "Sort contributions by amount",
-        },
-        {
-            "name": "contributions_created_at_sort",
-            "collection": "contributions",
-            "field_name": "created_at",
-            "index_type": "BTree",
-            "store_values": True,
-            "sort_enabled": True,
-            "description": "Sort contributions by time",
-        },
-        {
-            "name": "contributions_tx_hash_unique",
-            "collection": "contributions",
-            "field_name": "payment_tx_hash",
-            "index_type": "Hash",
-            "unique_constraint": True,
-            "store_values": True,
-            "description": "Track payment transactions (prevent duplicates)",
-        },
-    ]
+    success_count = 0
+    error_count = 0
 
-    # ============================================
-    # IMAGES COLLECTION INDEXES (Blob Storage)
-    # ============================================
-    image_indexes = [
-        {
-            "name": "images_blob_id_unique",
-            "collection": "images",
-            "field_name": "blob_id",
-            "index_type": "Hash",
-            "unique_constraint": True,
-            "store_values": True,
-            "description": "Unique blob identifier for retrieval",
-        },
-        {
-            "name": "images_content_type_filter",
-            "collection": "images",
-            "field_name": "content_type",
-            "index_type": "BTree",
-            "store_values": True,
-            "description": "Filter by MIME type (image/png, image/jpeg, etc.)",
-        },
-        {
-            "name": "images_size_bytes_sort",
-            "collection": "images",
-            "field_name": "size_bytes",
-            "index_type": "BTree",
-            "store_values": True,
-            "sort_enabled": True,
-            "description": "File size for validation and sorting",
-        },
-        {
-            "name": "images_uploaded_at_sort",
-            "collection": "images",
-            "field_name": "uploaded_at",
-            "index_type": "BTree",
-            "store_values": True,
-            "sort_enabled": True,
-            "description": "Timestamp for sorting by upload date",
-        },
-        {
-            "name": "images_gathering_id_join",
-            "collection": "images",
-            "field_name": "gathering_id",
-            "index_type": "Hash",
-            "store_values": True,
-            "description": "Link images to gatherings",
-        },
-    ]
+    for name, schema in schemas:
+        print(f"\n{'=' * 50}")
+        print(f"Syncing collection: {name}")
+        print(f"{'=' * 50}")
 
-    all_indexes = gathering_indexes + contribution_indexes + image_indexes
-    created = 0
-    skipped = 0
-    failed = 0
-
-    for index in all_indexes:
         try:
-            print(f"Creating index: {index['name']}... ", end="", flush=True)
+            # Use syncCollection to create/update indexes
+            result = client.sync_collection(schema)
 
-            response = client.post(
-                f"/api/apps/{APP_ID}/indexes",
-                json=index,
-            )
-            response.raise_for_status()
+            print(f"  Success: {result.get('success', False)}")
 
-            print("OK")
-            created += 1
+            if result.get("created"):
+                print(f"  Created indexes:")
+                for idx in result["created"]:
+                    print(f"    - {idx['field']} ({idx['type']})")
 
-        except httpx.HTTPStatusError as e:
-            message = e.response.text
+            if result.get("removed"):
+                print(f"  Removed indexes:")
+                for idx in result["removed"]:
+                    print(f"    - {idx['field']} ({idx['type']})")
 
-            # Check if index already exists
-            if "already exists" in message or "duplicate" in message.lower():
-                print("SKIP (already exists)")
-                skipped += 1
+            if result.get("unchanged"):
+                print(f"  Unchanged indexes: {len(result['unchanged'])}")
+
+            if result.get("errors"):
+                print(f"  Errors:")
+                for err in result["errors"]:
+                    print(f"    - {err}")
+                error_count += 1
             else:
-                print(f"FAIL: {message}")
-                failed += 1
+                success_count += 1
 
         except Exception as e:
-            print(f"FAIL: {str(e)}")
-            failed += 1
-
-    print()
-    print("=" * 40)
-    print("Index creation complete!")
-    print(f"Created: {created}")
-    print(f"Skipped: {skipped}")
-    print(f"Failed: {failed}")
-    print("=" * 40)
+            print(f"  FAILED: {str(e)}")
+            error_count += 1
 
     # ============================================
     # CREATE MATERIALIZED VIEW: gatherings_with_stats
     # ============================================
-    print()
-    print("Creating materialized view: gatherings_with_stats...")
-
-    view_config = {
-        "name": "gatherings_with_stats",
-        "source_collections": ["gatherings", "contributions"],
-        "query": {
-            "find": {},
-            "select": {},
-            # JOIN contributions to gatherings
-            "contributions": {
-                "resolve": {"gathering_id": "$data.id"},
-                "model": "contributions",
-                "many": True,
-            },
-        },
-        # Aggregate contribution stats per gathering
-        "group_by": ["id"],
-        "aggregate": {
-            "current_amount": {"$sum": "contributions.amount"},
-            "contributor_count": {"$count": "contributions"},
-        },
-    }
+    print(f"\n{'=' * 50}")
+    print("Creating materialized view: gatherings_with_stats")
+    print(f"{'=' * 50}")
 
     try:
-        response = client.post(
-            f"/apps/{APP_ID}/views",
-            json=view_config,
+        view = client.create_view(
+            name="gatherings_with_stats",
+            source_collections=["gatherings", "contributions"],
+            query={
+                "base": "gatherings",
+                "join": {
+                    "contributions": {
+                        "on": {"gathering_id": "$data.id"},
+                        "type": "left",
+                    }
+                },
+                "aggregate": {
+                    "current_amount": {"$sum": "contributions.amount"},
+                    "contributor_count": {"$count": "contributions.id"},
+                },
+                "group_by": ["id"],
+            }
         )
-        response.raise_for_status()
-        result = response.json()
-        print(f"  View created! Ticket: {result.get('ticket_id', 'N/A')}")
-    except httpx.HTTPStatusError as e:
-        message = e.response.text
-        if "already exists" in message or "duplicate" in message.lower():
+        print(f"  View created: {view.get('name', 'gatherings_with_stats')}")
+        success_count += 1
+    except Exception as e:
+        error_msg = str(e)
+        if "already exists" in error_msg.lower() or "duplicate" in error_msg.lower():
             print("  View already exists (skipped)")
         else:
-            print(f"  Failed to create view: {message}")
-    except Exception as e:
-        print(f"  Failed to create view: {str(e)}")
+            print(f"  FAILED: {error_msg}")
+            # Try to refresh if it exists
+            try:
+                client.refresh_view("gatherings_with_stats")
+                print("  Refreshed existing view")
+            except:
+                pass
 
     print()
+    print("=" * 50)
     print("Setup complete!")
+    print(f"  Collections synced: {success_count}")
+    print(f"  Errors: {error_count}")
+    print("=" * 50)
 
-    client.close()
-
-    if failed > 0:
+    if error_count > 0:
         sys.exit(1)
 
 
