@@ -44,7 +44,7 @@ def main():
     gatherings_schema: SimpleCollectionSchema = {
         "name": "gatherings",
         "fields": {
-            "id": {"type": "string", "index": True, "indexType": "hash"},
+            "id": {"type": "string", "index": True, "unique": True, "indexType": "hash"},
             "creator": {"type": "string", "index": True, "indexType": "hash"},
             "status": {"type": "string", "index": True, "indexType": "hash"},
             "created_at": {"type": "date", "index": True},
@@ -60,7 +60,7 @@ def main():
     contributions_schema: SimpleCollectionSchema = {
         "name": "contributions",
         "fields": {
-            "id": {"type": "string", "index": True, "indexType": "hash"},
+            "id": {"type": "string", "index": True, "unique": True, "indexType": "hash"},
             "gathering_id": {"type": "string", "index": True, "indexType": "hash"},
             "contributor": {"type": "string", "index": True, "indexType": "hash"},
             "amount": {"type": "number", "index": True},
@@ -76,7 +76,7 @@ def main():
     images_schema: SimpleCollectionSchema = {
         "name": "images",
         "fields": {
-            "blob_id": {"type": "string", "index": True, "indexType": "hash"},
+            "blob_id": {"type": "string", "index": True, "unique": True, "indexType": "hash"},
             "content_type": {"type": "string", "index": True},
             "size_bytes": {"type": "number", "index": True},
             "uploaded_at": {"type": "date", "index": True},
